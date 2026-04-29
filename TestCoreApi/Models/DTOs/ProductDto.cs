@@ -36,7 +36,6 @@ namespace TestCoreApi.Models.DTOs
         public string? Category { get; set; }
     }
 
-    /// <summary>Payload for PUT /api/products/{id}.</summary>
     public class UpdateProductDto
     {
         [Required]

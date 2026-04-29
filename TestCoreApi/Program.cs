@@ -28,8 +28,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureDeleted();   // drop stale empty DB
-    db.Database.EnsureCreated();   // recreate with all tables + seed data
+    db.Database.EnsureDeleted();
+    db.Database.EnsureCreated();
 }
 
 if (app.Environment.IsDevelopment())
