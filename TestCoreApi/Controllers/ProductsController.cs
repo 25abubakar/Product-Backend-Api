@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TestCoreApi.Models;
 using TestCoreApi.Models.DTOs;
@@ -8,6 +9,7 @@ namespace TestCoreApi.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
+    [Authorize]   
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _service;
