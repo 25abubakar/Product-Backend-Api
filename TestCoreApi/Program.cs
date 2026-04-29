@@ -9,14 +9,17 @@ using TestCoreApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// ── Repositories & Services ───────────────────────────────────────────────────
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProductService,    ProductService>();
 builder.Services.AddScoped<IJwtService,        JwtService>();
 builder.Services.AddScoped<IAuthService,       AuthService>();
 
+// ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey   = jwtSettings["SecretKey"]!;
 
@@ -38,10 +41,31 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew                = TimeSpan.Zero
     };
+
+    // Return proper 401 JSON instead of empty response
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+            context.Response.StatusCode  = 401;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(
+                """{"message":"Unauthorized. Please login and provide a valid Bearer token."}""");
+        },
+        OnForbidden = async context =>
+        {
+            context.Response.StatusCode  = 403;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(
+                """{"message":"Forbidden. You do not have permission to access this resource."}""");
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
 
+// ── Controllers + Swagger ─────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -61,27 +85,33 @@ builder.Services.AddSwaggerGen(c =>
         Scheme       = "Bearer",
         BearerFormat = "JWT",
         In           = ParameterLocation.Header,
-        Description  = "Enter your JWT token. The 'Bearer ' prefix is added automatically."
+        Description  = "Paste your JWT token here. 'Bearer ' prefix is added automatically."
     });
 
     c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
     {
-        {
-            new OpenApiSecuritySchemeReference(schemeName),
-            new List<string>()
-        }
+        { new OpenApiSecuritySchemeReference(schemeName), new List<string>() }
     });
 });
 
 var app = builder.Build();
 
+// ── Ensure DB + tables exist (safe — only creates if missing) ─────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureDeleted();
-    db.Database.EnsureCreated();
+    db.Database.EnsureCreated();   // creates DB + tables if they don't exist; no-op if already there
 }
 
+// ── Global exception handler ──────────────────────────────────────────────────
+app.UseExceptionHandler(errApp => errApp.Run(async context =>
+{
+    context.Response.StatusCode  = 500;
+    context.Response.ContentType = "application/json";
+    await context.Response.WriteAsync("""{"message":"An unexpected error occurred. Please try again later."}""");
+}));
+
+// ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -89,7 +119,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication();
+app.UseAuthentication();   // must be before UseAuthorization
 app.UseAuthorization();
 app.MapControllers();
 

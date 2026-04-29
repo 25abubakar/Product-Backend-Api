@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TestCoreApi.Models.DTOs;
 using TestCoreApi.Services;
@@ -7,6 +8,7 @@ namespace TestCoreApi.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _auth;
@@ -22,18 +24,12 @@ namespace TestCoreApi.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var (success, error, result) = await _auth.RegisterAsync(dto);
 
-            try
-            {
-                var result = await _auth.RegisterAsync(dto);
-                return StatusCode(StatusCodes.Status201Created, result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(new { message = ex.Message });
-            }
+            if (!success)
+                return Conflict(new { message = error });
+
+            return StatusCode(StatusCodes.Status201Created, result);
         }
 
         [HttpPost("login")]
@@ -41,18 +37,12 @@ namespace TestCoreApi.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var (success, error, result) = await _auth.LoginAsync(dto);
 
-            try
-            {
-                var result = await _auth.LoginAsync(dto);
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { message = ex.Message });
-            }
+            if (!success)
+                return Unauthorized(new { message = error });
+
+            return Ok(result);
         }
     }
 }

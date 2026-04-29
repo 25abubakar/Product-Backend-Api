@@ -23,12 +23,6 @@ namespace TestCoreApi.Data
                 entity.Property(p => p.Category).HasMaxLength(100);
             });
 
-            modelBuilder.Entity<Product>().HasData(
-                new Product { Id = 1, Name = "Laptop",      Description = "High-performance laptop", Price = 999.99m,  Stock = 10, Category = "Electronics", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-                new Product { Id = 2, Name = "Wireless Mouse", Description = "Ergonomic wireless mouse", Price = 29.99m, Stock = 50, Category = "Electronics", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-                new Product { Id = 3, Name = "Desk Chair",  Description = "Comfortable office chair",  Price = 249.99m, Stock = 15, Category = "Furniture",   CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
-            );
-
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(u => u.Id);

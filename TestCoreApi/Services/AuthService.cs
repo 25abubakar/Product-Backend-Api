@@ -7,9 +7,9 @@ namespace TestCoreApi.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly AppDbContext _db;
-        private readonly IJwtService  _jwt;
-        private readonly IConfiguration _config;
+        private readonly AppDbContext    _db;
+        private readonly IJwtService     _jwt;
+        private readonly IConfiguration  _config;
 
         public AuthService(AppDbContext db, IJwtService jwt, IConfiguration config)
         {
@@ -18,15 +18,17 @@ namespace TestCoreApi.Services
             _config = config;
         }
 
-        public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
+        public async Task<(bool Success, string? Error, AuthResponseDto? Result)> RegisterAsync(RegisterDto dto)
         {
-            if (await _db.Users.AnyAsync(u => u.Email == dto.Email.ToLower()))
-                throw new InvalidOperationException("Email is already registered.");
+            var emailNorm = dto.Email.ToLower().Trim();
+
+            if (await _db.Users.AnyAsync(u => u.Email == emailNorm))
+                return (false, "Email is already registered.", null);
 
             var user = new User
             {
                 FullName     = dto.FullName.Trim(),
-                Email        = dto.Email.ToLower().Trim(),
+                Email        = emailNorm,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Role         = "User",
                 CreatedAt    = DateTime.UtcNow
@@ -35,28 +37,27 @@ namespace TestCoreApi.Services
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
 
-            return BuildResponse(user);
+            return (true, null, BuildResponse(user));
         }
 
-        public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
+        public async Task<(bool Success, string? Error, AuthResponseDto? Result)> LoginAsync(LoginDto dto)
         {
-            var user = await _db.Users
-                .FirstOrDefaultAsync(u => u.Email == dto.Email.ToLower().Trim());
+            var emailNorm = dto.Email.ToLower().Trim();
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == emailNorm);
 
             if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-                throw new UnauthorizedAccessException("Invalid email or password.");
+                return (false, "Invalid email or password.", null);
 
-            return BuildResponse(user);
+            return (true, null, BuildResponse(user));
         }
 
         private AuthResponseDto BuildResponse(User user)
         {
             var expiryMins = int.Parse(_config["JwtSettings:ExpiryMinutes"]!);
-            var token      = _jwt.GenerateToken(user);
-
             return new AuthResponseDto
             {
-                Token     = token,
+                Token     = _jwt.GenerateToken(user),
                 Email     = user.Email,
                 FullName  = user.FullName,
                 Role      = user.Role,
