@@ -13,34 +13,42 @@ namespace TestCoreApi.Services
             _repository = repository;
         }
 
-        public IEnumerable<Product> GetAll() => _repository.GetAll();
+        public Task<IEnumerable<Product>> GetAllAsync() =>
+            _repository.GetAllAsync();
 
-        public Product? GetById(int id) => _repository.GetById(id);
+        public Task<IEnumerable<Product>> GetByCategoryAsync(string category) =>
+            _repository.GetByCategoryAsync(category);
 
-        public Product Create(CreateProductDto dto)
+        public Task<Product?> GetByIdAsync(int id) =>
+            _repository.GetByIdAsync(id);
+
+        public async Task<Product> CreateAsync(CreateProductDto dto)
         {
             var product = new Product
             {
                 Name        = dto.Name,
                 Description = dto.Description,
                 Price       = dto.Price,
-                Stock       = dto.Stock
+                Stock       = dto.Stock,
+                Category    = dto.Category
             };
-            return _repository.Create(product);
+            return await _repository.CreateAsync(product);
         }
 
-        public Product? Update(int id, UpdateProductDto dto)
+        public async Task<Product?> UpdateAsync(int id, UpdateProductDto dto)
         {
             var updated = new Product
             {
                 Name        = dto.Name,
                 Description = dto.Description,
                 Price       = dto.Price,
-                Stock       = dto.Stock
+                Stock       = dto.Stock,
+                Category    = dto.Category
             };
-            return _repository.Update(id, updated);
+            return await _repository.UpdateAsync(id, updated);
         }
 
-        public bool Delete(int id) => _repository.Delete(id);
+        public Task<bool> DeleteAsync(int id) =>
+            _repository.DeleteAsync(id);
     }
 }

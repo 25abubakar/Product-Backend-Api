@@ -1,39 +1,37 @@
 using Microsoft.EntityFrameworkCore;
 using TestCoreApi.Data;
 using TestCoreApi.Repositories;
+using TestCoreApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ── Repositories ──────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
-// ── Controllers + Swagger ─────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new()
     {
-        Title   = "TestCoreApi",
-        Version = "v1",
+        Title       = "TestCoreApi",
+        Version     = "v1",
         Description = "Full CRUD API for Products"
     });
 });
 
 var app = builder.Build();
 
-// ── Auto-migrate on startup ───────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    db.Database.EnsureDeleted();   // drop stale empty DB
+    db.Database.EnsureCreated();   // recreate with all tables + seed data
 }
 
-// ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

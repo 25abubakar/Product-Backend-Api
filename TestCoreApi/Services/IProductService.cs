@@ -5,10 +5,11 @@ namespace TestCoreApi.Services
 {
     public interface IProductService
     {
-        IEnumerable<Product> GetAll();
-        Product? GetById(int id);
-        Product Create(CreateProductDto dto);
-        Product? Update(int id, UpdateProductDto dto);
-        bool Delete(int id);
+        Task<IEnumerable<Product>> GetAllAsync();
+        Task<IEnumerable<Product>> GetByCategoryAsync(string category);
+        Task<Product?> GetByIdAsync(int id);
+        Task<Product> CreateAsync(CreateProductDto dto);
+        Task<Product?> UpdateAsync(int id, UpdateProductDto dto);
+        Task<bool> DeleteAsync(int id);
     }
 }
