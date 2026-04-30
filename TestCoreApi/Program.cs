@@ -3,23 +3,21 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 using TestCoreApi.Data;
 using TestCoreApi.Repositories;
 using TestCoreApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ── Repositories & Services ───────────────────────────────────────────────────
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProductService,    ProductService>();
 builder.Services.AddScoped<IJwtService,        JwtService>();
 builder.Services.AddScoped<IAuthService,       AuthService>();
 
-// ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey   = jwtSettings["SecretKey"]!;
 
@@ -42,7 +40,6 @@ builder.Services.AddAuthentication(options =>
         ClockSkew                = TimeSpan.Zero
     };
 
-    // Return proper 401 JSON instead of empty response
     options.Events = new JwtBearerEvents
     {
         OnChallenge = async context =>
@@ -65,7 +62,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// ── Controllers + Swagger ─────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -99,14 +95,12 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// ── Ensure DB + tables exist (safe — only creates if missing) ─────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();   // creates DB + tables if they don't exist; no-op if already there
 }
 
-// ── Global exception handler ──────────────────────────────────────────────────
 app.UseExceptionHandler(errApp => errApp.Run(async context =>
 {
     context.Response.StatusCode  = 500;
@@ -114,15 +108,15 @@ app.UseExceptionHandler(errApp => errApp.Run(async context =>
     await context.Response.WriteAsync("""{"message":"An unexpected error occurred. Please try again later."}""");
 }));
 
-// ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TestCoreApi v1"));
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication();   // must be before UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
