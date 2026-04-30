@@ -57,7 +57,8 @@ namespace TestCoreApi.Services
             var expiryMins = int.Parse(_config["JwtSettings:ExpiryMinutes"]!);
             return new AuthResponseDto
             {
-                Token     = _jwt.GenerateToken(user),
+                TokenType  = "Bearer",
+                AccessToken = _jwt.GenerateToken(user),
                 Email     = user.Email,
                 FullName  = user.FullName,
                 Role      = user.Role,

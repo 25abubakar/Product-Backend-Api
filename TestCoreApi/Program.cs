@@ -90,7 +90,10 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
     {
-        { new OpenApiSecuritySchemeReference(schemeName), new List<string>() }
+        {
+            new OpenApiSecuritySchemeReference(schemeName),
+            new List<string>()
+        }
     });
 });
 
