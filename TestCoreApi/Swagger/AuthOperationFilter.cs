@@ -1,0 +1,46 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.OpenApi;
+using Swashbuckle.AspNetCore.SwaggerGen;
+
+namespace TestCoreApi.Swagger
+{
+    public class AuthOperationFilter : IOperationFilter
+    {
+        public void Apply(OpenApiOperation operation, OperationFilterContext context)
+        {
+            var hasAuthorize = context.MethodInfo
+                .GetCustomAttributes(true)
+                .OfType<AuthorizeAttribute>()
+                .Any()
+                ||
+                context.MethodInfo.DeclaringType?
+                .GetCustomAttributes(true)
+                .OfType<AuthorizeAttribute>()
+                .Any() == true;
+
+            var hasAllowAnonymous = context.MethodInfo
+                .GetCustomAttributes(true)
+                .OfType<AllowAnonymousAttribute>()
+                .Any()
+                ||
+                context.MethodInfo.DeclaringType?
+                .GetCustomAttributes(true)
+                .OfType<AllowAnonymousAttribute>()
+                .Any() == true;
+
+            if (!hasAuthorize || hasAllowAnonymous)
+                return;
+
+            operation.Security = new List<OpenApiSecurityRequirement>
+            {
+                new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecuritySchemeReference("Bearer"),
+                        new List<string>()
+                    }
+                }
+            };
+        }
+    }
+}

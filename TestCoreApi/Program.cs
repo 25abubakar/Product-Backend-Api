@@ -1,12 +1,19 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using TestCoreApi.Data;
 using TestCoreApi.Repositories;
 using TestCoreApi.Services;
+using TestCoreApi.Swagger;
+
+// Disable JWT claim type remapping so ClaimTypes.Role is preserved as-is
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,18 +44,32 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer              = jwtSettings["Issuer"],
         ValidAudience            = jwtSettings["Audience"],
         IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        ClockSkew                = TimeSpan.Zero
+        ClockSkew                = TimeSpan.Zero,
+        NameClaimType = ClaimTypes.Name,   // ? ADD THIS
+        RoleClaimType = ClaimTypes.Role    // ? ADD THIS
     };
 
     options.Events = new JwtBearerEvents
     {
+        OnAuthenticationFailed = context =>
+        {
+            // Exact failure reason console mein print hoga
+            Console.WriteLine($"[JWT FAILED] {context.Exception.GetType().Name}: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine($"[JWT OK] Token validated for: {context.Principal?.Identity?.Name}");
+            return Task.CompletedTask;
+        },
         OnChallenge = async context =>
         {
             context.HandleResponse();
             context.Response.StatusCode  = 401;
             context.Response.ContentType = "application/json";
+            var reason = context.AuthenticateFailure?.Message ?? "No token provided";
             await context.Response.WriteAsync(
-                """{"message":"Unauthorized. Please login and provide a valid Bearer token."}""");
+                $$$"""{"message":"Unauthorized. Please login and provide a valid Bearer token.","reason":"{{{reason}}}"}""");
         },
         OnForbidden = async context =>
         {
@@ -77,11 +98,9 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityDefinition(schemeName, new OpenApiSecurityScheme
     {
         Name         = "Authorization",
-        Type         = SecuritySchemeType.Http,
-        Scheme       = "Bearer",
-        BearerFormat = "JWT",
+        Type         = SecuritySchemeType.ApiKey,   // ApiKey = manual header, always works
         In           = ParameterLocation.Header,
-        Description  = "Paste your JWT token here. 'Bearer ' prefix is added automatically."
+        Description  = "Enter: Bearer {your token}  e.g. Bearer eyJhbG..."
     });
 
     c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
@@ -91,6 +110,9 @@ builder.Services.AddSwaggerGen(c =>
             new List<string>()
         }
     });
+
+    // Fix: automatically attach Bearer to [Authorize] endpoints in Swagger UI
+    c.OperationFilter<AuthOperationFilter>();
 });
 
 var app = builder.Build();

@@ -1,6 +1,6 @@
 @TestCoreApi_HostAddress = http://localhost:5226
 
-GET {{TestCoreApi_HostAddress}}/weatherforecast/
+GET {{TestCoreApi_HostAddress}}/TestCoreApi/
 Accept: application/json
 
 ###
