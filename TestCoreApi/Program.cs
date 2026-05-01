@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
-using Scalar.AspNetCore;
+using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -45,15 +44,14 @@ builder.Services.AddAuthentication(options =>
         ValidAudience            = jwtSettings["Audience"],
         IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew                = TimeSpan.Zero,
-        NameClaimType = ClaimTypes.Name,   // ? ADD THIS
-        RoleClaimType = ClaimTypes.Role    // ? ADD THIS
+        NameClaimType            = ClaimTypes.Name,
+        RoleClaimType            = ClaimTypes.Role
     };
 
     options.Events = new JwtBearerEvents
     {
         OnAuthenticationFailed = context =>
         {
-            // Exact failure reason console mein print hoga
             Console.WriteLine($"[JWT FAILED] {context.Exception.GetType().Name}: {context.Exception.Message}");
             return Task.CompletedTask;
         },
@@ -69,14 +67,14 @@ builder.Services.AddAuthentication(options =>
             context.Response.ContentType = "application/json";
             var reason = context.AuthenticateFailure?.Message ?? "No token provided";
             await context.Response.WriteAsync(
-                $$$"""{"message":"Unauthorized. Please login and provide a valid Bearer token.","reason":"{{{reason}}}"}""");
+                $"{{\"message\":\"Unauthorized. Please login and provide a valid Bearer token.\",\"reason\":\"{reason}\"}}");
         },
         OnForbidden = async context =>
         {
             context.Response.StatusCode  = 403;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(
-                """{"message":"Forbidden. You do not have permission to access this resource."}""");
+                "{\"message\":\"Forbidden. You do not have permission to access this resource.\"}");
         }
     };
 });
@@ -95,23 +93,33 @@ builder.Services.AddSwaggerGen(c =>
     });
 
     const string schemeName = "Bearer";
+
+    // Standard Swashbuckle v6 JWT setup — works 100% with Swagger UI
     c.AddSecurityDefinition(schemeName, new OpenApiSecurityScheme
     {
         Name         = "Authorization",
-        Type         = SecuritySchemeType.ApiKey,   // ApiKey = manual header, always works
+        Type         = SecuritySchemeType.Http,
+        Scheme       = "bearer",
+        BearerFormat = "JWT",
         In           = ParameterLocation.Header,
-        Description  = "Enter: Bearer {your token}  e.g. Bearer eyJhbG..."
+        Description  = "Paste your JWT token here. 'Bearer ' prefix is added automatically."
     });
 
-    c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecuritySchemeReference(schemeName),
-            new List<string>()
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id   = schemeName
+                }
+            },
+            Array.Empty<string>()
         }
     });
 
-    // Fix: automatically attach Bearer to [Authorize] endpoints in Swagger UI
     c.OperationFilter<AuthOperationFilter>();
 });
 
@@ -120,21 +128,20 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();   // creates DB + tables if they don't exist; no-op if already there
+    db.Database.EnsureCreated();
 }
 
 app.UseExceptionHandler(errApp => errApp.Run(async context =>
 {
     context.Response.StatusCode  = 500;
     context.Response.ContentType = "application/json";
-    await context.Response.WriteAsync("""{"message":"An unexpected error occurred. Please try again later."}""");
+    await context.Response.WriteAsync("{\"message\":\"An unexpected error occurred. Please try again later.\"}");
 }));
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TestCoreApi v1"));
-    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
